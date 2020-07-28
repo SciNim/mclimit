@@ -7,6 +7,7 @@ type
     ndim: int # dimensionality for reference
     bins: Tensor[float]
     counts: Tensor[float]
+    err: Tensor[float]
 
   # a systematic error for candidate and background channel
   SystematicError = object

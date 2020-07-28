@@ -1,0 +1,16 @@
+* mclimit 
+
+This is a Nim port of the =TLimit= ROOT class for confidence level
+computations for searches with small statistics.
+
+The ROOT reference and implementation:
+- https://root.cern.ch/doc/master/classTLimit.html
+- https://root.cern.ch/doc/master/TLimit_8cxx_source.html
+
+The ROOT code itself is a C++ port of Tom Junk's =mclimit= C
+implementation:
+- [[https://arxiv.org/abs/hep-ex/9902006][HEP-EX/9902006]]
+
+The goal is a Weave multithreaded version of mclimit. The first
+version will be single threaded, since I first need to get
+multithreaded RNG right.

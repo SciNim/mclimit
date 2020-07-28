@@ -99,4 +99,24 @@ proc computeLimit(data: DataSource, rnd: MersenneTwister): ConfidenceLevel =
 
 proc fluctuate(input: DataSource, output: var DataSource,
                init: bool, rnd: MersenneTwister, stat: bool): bool =
-  discard
+  if output.sig.len == 0: # should imply output isn't initialized yet
+    output = input
+  if input.systErr.len == 0 and not stat:
+    # if there are no systematics and we don't use statistical errors, we cannot
+    # fluctuate or in other words the input ``is`` the fluctuated output
+    return false
+  elif input.systErr.len == 0:
+    # in this case just fluctuate using statistics
+    for chIdx in 0 ..< nChannel:
+      template statFluc(field: untyped): untyped =
+        var new = output.field[chIdx]
+        var old = input.field[chIdx]
+        for bin in 0 ..< data.field[chIdx].getBins:
+          new.count[bin] = old.count[bin] + rnd.gauss(0, old.err[bin])
+        output.field[chIdx] = new # make ref object to alleviate these copies?
+      statFluc(sig)
+      statFluc(back)
+    return true
+  else:
+    # else use both statistical and systematic
+    discard

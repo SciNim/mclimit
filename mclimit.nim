@@ -14,11 +14,13 @@ type
     cand: float
     back: float
 
-  DataSource = object
-    sig: seq[Histogram] # expected signal hypothesis, one for each channel
-    back: seq[Histogram] # measured background
-    cand: seq[Histogram] # measured candidates
+  Channel = object
+    sig: Histogram # expected signal hypothesis, one for each channel
+    back: Histogram # measured background
+    cand: Histogram # measured candidates
     systErr: OrderedTable[string, SystematicError]
+
+  DataSource = seq[Channel]
 
   ConfidenceLevel = object
     btot: float
@@ -62,21 +64,22 @@ proc gauss(rnd: MersenneTwister, mean, sigma: float): float =
 
 proc computeLimit(data: DataSource, rnd: MersenneTwister): ConfidenceLevel =
   # determine the number of bins the channel with most bins has
-  let nChannel = data.sig.len
+  let nChannel = data.len
   let maxBins = max(data.sig.mapIt(it.getBins + 2))
-  let nsig = data.sig.foldl(a.counts.sum + b.counts.sum, 0.0)
-  let nbg = data.back.foldl(a.counts.sum + b.counts.sum, 0.0)
-  let ncand = data.cand.foldl(a.counts.sum + b.counts.sum, 0.0)
+  template sumIt(fd: untyped): untyped = data.foldl(a.fd.counts.sum + b.fd.counts.sum, 0.0)
+  let nsig = sumIt(sig)
+  let nbg = sumIt(back)
+  let ncand = sumIt(cand)
 
   result = ConfidenceLevel(btot: nbg, stot: nsig, dtot: ncand)
 
   var fgTable = newTensor[float]((maxbins, nChannel))
   var buffer = 0.0
   for chIdx in 0 ..< nChannel:
-    for bin in 0 ..< data.sig[chIdx].getBins:
-      let s = data.sig[chIdx][bin]
-      let b = data.back[chIdx][bin]
-      let d = data.cand[chIdx][bin]
+    for bin in 0 ..< data[chIdx].sig.getBins:
+      let s = data[chIdx].sig[bin]
+      let b = data[chIdx].back[bin]
+      let d = data[chIdx].cand[bin]
       if almostEqual(b, 0.0) and almostEqual(s, 0.0):
         warn &"Ignoring bin {bin} of channel {channel} which has s = {s} but" &
           &" b = {b}\n\tMaybe the MC statistic has to be improved..."

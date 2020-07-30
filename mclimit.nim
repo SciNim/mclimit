@@ -102,6 +102,17 @@ proc computeLimit(data: DataSource, rnd: MersenneTwister): ConfidenceLevel =
 
 proc fluctuate(input: DataSource, output: var DataSource,
                init: bool, rnd: MersenneTwister, stat: bool): bool =
+  template statFluc(chIdx, field: untyped): untyped =
+    var new = output[chIdx].field
+    var old = input[chIdx].field
+    if stat:
+      for bin in 0 ..< data[chIdx].field.getBins:
+        new.count[bin] = old.count[bin] + rnd.gauss(0, old.err[bin])
+    else:
+      new = old
+    new
+
+  let nChannel = input.len
   if output.sig.len == 0: # should imply output isn't initialized yet
     output = input
   if input.systErr.len == 0 and not stat:
@@ -111,15 +122,39 @@ proc fluctuate(input: DataSource, output: var DataSource,
   elif input.systErr.len == 0:
     # in this case just fluctuate using statistics
     for chIdx in 0 ..< nChannel:
-      template statFluc(field: untyped): untyped =
-        var new = output.field[chIdx]
-        var old = input.field[chIdx]
-        for bin in 0 ..< data.field[chIdx].getBins:
-          new.count[bin] = old.count[bin] + rnd.gauss(0, old.err[bin])
-        output.field[chIdx] = new # make ref object to alleviate these copies?
-      statFluc(sig)
-      statFluc(back)
+      # make ref object to alleviate these copies?
+      output[chIdx].sig = statFluc(chIdx, sig)
+      output[chIdx].back = statFluc(chIdx, back)
     return true
   else:
     # else use both statistical and systematic
-    discard
+    # Find a choice for the random variation and
+    # re-toss all random numbers if any background or signal
+    # goes negative.  (background = 0 is bad too, so put a little protection
+    # around it -- must have at least 10% of the bg estimate).
+    var
+      reToss = true
+      serrf = zeros[float](input.len)
+      berrf = zeros[float](input.len)
+    while reToss:
+      var toss = zeros[float](input.systErr.len)
+      toss.apply_inline(rnd.gauss(0, 1))
+      reToss = false
+      for chIdx in 0 ..< input.len:
+        serff[chIdx] = 0.0
+        berff[chIdx] = 0.0
+        var tIdx = 0
+        for key, val in 0 ..< input[chIdx].systErr:
+          serff[chIdx] += val.sig * toss[tIdx]
+          berff[chIdx] += val.cand * toss[tIdx]
+          inc tIdx
+        if serff[chIdx] < -1.0 or berrf[chIdx] < -0.9:
+          reToss = true
+          continue
+    # now apply statistical error too
+    for chIdx in 0 ..< nChannel:
+      let newSig = statFluc(chIdx, sig)
+      output[chIdx].sig = newSig.map_inline(x * (1.0 + serrf[chIdx]))
+      let newBack = statFluc(chIdx, back)
+      output[chIdx].back = newSig.map_inline(x * (1.0 + berrf[chIdx]))
+    result = true

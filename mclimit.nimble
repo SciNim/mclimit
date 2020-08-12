@@ -11,3 +11,5 @@ srcDir        = "src"
 # Dependencies
 
 requires "nim >= 1.2.4"
+requires "alea"
+requires "arraymancer"

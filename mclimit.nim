@@ -1,6 +1,6 @@
-import mersenne, logging, strformat, math
+import logging, strformat, math, tables, os, sequtils
 
-import arraymancer
+import alea, arraymancer
 
 type
   Histogram = object # can be ndimensional in principle
@@ -44,23 +44,23 @@ proc getBins(h: Histogram): int =
 proc logLikelihood(s, b, b2, d: float): float =
   result = d * ln((s + b) / b2)
 
-template rand(rng: MersenneTwister): float =
+template random(rng: Random, uniform: Uniform): float =
   # 2.3283064365386963e-10 == 1./(max<UINt_t>+1)  -> then returned value cannot be = 1.0
-  rng.getNum().float * 2.3283064365386963e-10 # * Power(2,-32)
+  rng.sample(uniform) * 2.3283064365386963e-10 # * Power(2,-32)
 
-proc gauss(rnd: MersenneTwister, mean, sigma: float): float =
+proc gaus(rnd: var Random, mean, sigma: float): float =
   ## based on stdlib, which uses:
   # Ratio of uniforms method for normal
   # http://www2.econ.osaka-u.ac.jp/~tanizaki/class/2013/econome3/13.pdf
   const K = sqrt(2 / E)
+  const uni = uniform(0, 1)
   var
     a = 0.0
     b = 0.0
   while true:
-    a = rand(rnd)
-    b = (2.0 * rand(rnd) - 1.0) * K
+    a = random(rnd, uni)
+    b = (2.0 * random(rnd, uni) - 1.0) * K
     if  b * b <= -4.0 * a * a * ln(a): break
-  result = mu + sigma * (b / a)
 
 proc computeLimit(data: DataSource, rnd: MersenneTwister): ConfidenceLevel =
   # determine the number of bins the channel with most bins has
@@ -99,6 +99,7 @@ proc computeLimit(data: DataSource, rnd: MersenneTwister): ConfidenceLevel =
     lrb = zeros[float](nmc)
   for i in 0 ..< nmc:
     discard
+  result = mean + sigma * (b / a)
 
 proc fluctuate(input: DataSource, output: var DataSource,
                init: bool, rnd: MersenneTwister, stat: bool): bool =

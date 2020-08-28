@@ -81,6 +81,49 @@ proc gaus(rnd: var Random, mean, sigma: float): float =
     if  b * b <= -4.0 * a * a * ln(a): break
   result = mean + sigma * (b / a)
 
+proc CLb(cl: ConfidenceLevel, use_sMC: bool = false): float =
+  ## Get the confidence limit for the background only
+  if use_sMC:
+    for idx in items(cl.iss):
+      if cl.tss[idx] < cl.tsd:
+        result += 1.0 / cl.lrs[idx] * cl.nmc.float
+  else:
+    var i = 0
+    for idx in items(cl.isb):
+      if cl.tsb[idx] < cl.tsd:
+        # NOTE: so this is only the value with the highest tsb?
+        result = (i + 1).float / cl.nmc.float
+      inc i
+
+proc CLsb(cl: ConfidenceLevel, use_sMC: bool = false): float =
+  ## Get the confidence limit for the signal plus background hypothesis
+  if use_sMC:
+    var i = 0
+    for idx in items(cl.iss):
+      if cl.tss[idx] <= cl.tsd:
+        result = i.float / cl.nmc.float
+      inc i
+  else:
+    for idx in items(cl.isb):
+      if cl.tsb[idx] <= cl.tsd:
+        result += cl.lrb[idx] / cl.nmc.float
+
+proc CLs(cl: ConfidenceLevel, use_sMC: bool = false): float =
+  ## Get the confidence level defined by CLs = CLsb / CLb.
+  ## This quantity is stable with respect to background fluctuations.
+  let clb = cl.CLb(false) # NOTE: why `use_sMC` ignored here?
+  let clsb = cl.CLsb(use_sMC)
+  if clb == 0.0: warn "clb == 0!"
+  else: result = clsb / clb
+
+proc setTSB(cl: var ConfidenceLevel, tsb: Tensor[float]) =
+  cl.tsb = tsb
+  cl.isb = tsb.argsort(SortOrder.Ascending)
+
+proc setTSS(cl: var ConfidenceLevel, tss: Tensor[float]) =
+  cl.tss = tss
+  cl.iss = tss.argsort(SortOrder.Ascending)
+
 proc fluctuate(input: DataSource, output: var DataSource,
                rnd: var Random, stat: bool): bool =
   template statFluc(chIdx, field: untyped): untyped =
@@ -154,7 +197,7 @@ proc computeLimit(data: DataSource, rnd: var Random,
   let nbg = sumIt(back)
   let ncand = sumIt(cand)
 
-  result = ConfidenceLevel(btot: nbg, stot: nsig, dtot: ncand)
+  result = ConfidenceLevel(nmc: nmc, btot: nbg, stot: nsig, dtot: ncand)
 
   var fgTable = newTensor[float]([maxbins, nChannel])
   var buffer = 0.0
@@ -184,6 +227,8 @@ proc computeLimit(data: DataSource, rnd: var Random,
     tmp2 = data
     pois: Poisson
   for i in 0 ..< nmc:
+    if i mod 5000 == 0:
+      echo "Iteration ", i
     let fluct1 = if fluctuate(data, tmp1, rnd, stat): tmp1 else: data
     let fluct2 = if fluctuate(data, tmp2, rnd, stat): tmp2 else: data
     for chIdx in 0 ..< nChannel:
@@ -216,7 +261,7 @@ proc computeLimit(data: DataSource, rnd: var Random,
     lrs[i] = if lrs[i] < 710: exp(lrs[i]) else: exp(710.0)
     lrb[i] = if lrb[i] < 710: exp(lrb[i]) else: exp(710.0)
 
-  result.tss = tss
-  result.tsb = tsb
+  result.setTSS tss
+  result.setTSB tsb
   result.lrs = lrs
   result.lrb = lrb

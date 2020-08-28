@@ -1,7 +1,12 @@
-import logging, strformat, math, tables, os, sequtils
+import logging, strformat, math, tables, os, sequtils, sugar
 
-import alea, arraymancer
-
+import arraymancer
+import random / mersenne
+#import alea except `+` # Tensor seems to suit RandomVar concept for some reason,
+                        # which calls + for RandomVar in arraymancer
+# also cannot import sugar, since that breaks in combination with ggplotnim / chroma
+import alea / [core, rng, gauss, poisson]
+import ggplotnim, seqmath
 type
   Histogram = object # can be ndimensional in principle
     ndim: int # dimensionality for reference
@@ -23,10 +28,13 @@ type
   DataSource = seq[Channel]
 
   ConfidenceLevel = object
+    nmc: int # number of monte carlo samples
     btot: float
     stot: float
     dtot: float
     tsd: float
+    iss: Tensor[int]
+    isb: Tensor[int]
     tss: Tensor[float]
     tsb: Tensor[float]
     lrs: Tensor[float]
@@ -63,7 +71,7 @@ proc gaus(rnd: var Random, mean, sigma: float): float =
   # Ratio of uniforms method for normal
   # http://www2.econ.osaka-u.ac.jp/~tanizaki/class/2013/econome3/13.pdf
   const K = sqrt(2 / E)
-  const uni = uniform(0, 1)
+  const uni = uniform(0.0, 1.0)
   var
     a = 0.0
     b = 0.0
@@ -80,7 +88,8 @@ proc fluctuate(input: DataSource, output: var DataSource,
     var old = input[chIdx].field
     if stat:
       for bin in 0 ..< new.getBins:
-        new.counts[bin] = old.counts[bin] + gaus(rnd, 0.0, old.err[bin])
+        let gaus = gaussian(0.0, old.err[bin])
+        new.counts[bin] = old.counts[bin] + rnd.sample(gaus)
     else:
       new = old
     new

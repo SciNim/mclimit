@@ -206,7 +206,7 @@ proc computeLimit(data: DataSource, rnd: var Random,
       let s = data[chIdx].sig.counts[bin]
       let b = data[chIdx].back.counts[bin]
       let d = data[chIdx].cand.counts[bin]
-      if almostEqual(b, 0.0) and almostEqual(s, 0.0):
+      if almostEqual(b, 0.0) and s > 0.0:
         warn &"Ignoring bin {bin} of channel {chIdx} which has s = {s} but" &
           &" b = {b}\n\tMaybe the MC statistic has to be improved..."
       if s > 0.0 and b > 0.0:

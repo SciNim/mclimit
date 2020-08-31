@@ -161,9 +161,10 @@ proc fluctuate(input: DataSource, output: var DataSource,
       reToss = true
       serrf = zeros[float](input.len)
       berrf = zeros[float](input.len)
+    let gausRnd = gaussian(0.0, 1.0)
     while reToss:
       var toss = zeros[float](input[0].systErr.len)
-      toss.apply_inline(rnd.gaus(0.0, 1.0))
+      toss.apply_inline(rnd.sample(gausRnd))
       reToss = false
       for chIdx in 0 ..< input.len:
         serrf[chIdx] = 0.0

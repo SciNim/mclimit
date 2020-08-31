@@ -130,7 +130,8 @@ proc fluctuate(input: DataSource, output: var DataSource,
     var new = output[chIdx].field
     var old = input[chIdx].field
     if stat:
-      for bin in 0 ..< new.getBins:
+      # NOTE: I assume bin 0 is left out, because it's the underflow bin in ROOT
+      for bin in 1 ..< new.getBins:
         let gaus = gaussian(0.0, old.err[bin])
         new.counts[bin] = old.counts[bin] + rnd.sample(gaus)
     else:

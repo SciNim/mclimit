@@ -49,6 +49,13 @@ when isMainModule:
   addHandler(L)
   addHandler(fL)
 
+proc clone(h: Histogram): Histogram =
+  ## performs a clone of a histogram
+  result.ndim = h.ndim
+  result.bins = h.bins.clone
+  result.counts = h.counts.clone
+  result.err = h.err.clone
+
 proc getBins(h: Histogram): int =
   assert h.ndim == 1
   result = h.bins.size
@@ -135,7 +142,7 @@ proc fluctuate(input: DataSource, output: var DataSource,
         let gaus = gaussian(0.0, old.err[bin])
         new.counts[bin] = old.counts[bin] + rnd.sample(gaus)
     else:
-      new = old
+      new = old.clone
     new
 
   let nChannel = input.len

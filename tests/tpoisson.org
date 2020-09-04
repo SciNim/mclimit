@@ -1,0 +1,67 @@
+* Simple poisson based test
+
+=tpoisson.*= is a simple test to check whether the Nim code produces
+the same results as the C++ code base.
+
+For the =C++= example [[https://root.cern.ch/][ROOT]] is required. 
+It also contains a copy of the following header only CSV reader:
+https://github.com/ben-strasser/fast-cpp-csv-parser
+
+The code isn't written as a proper test for the time being. One just
+has to compare the output manually.
+
+First run the Nim code:
+
+#+BEGIN_SRC sh
+nim c -d:danger -r tpoisson.nim
+#+END_SRC
+
+The result should end with these lines:
+#+begin_src sh
+CLb: 0.6002999999999999    
+CLsb: 0.0001508410523457171
+CLs: 0.0002512761158516027 
+#+end_src
+
+The code creates a CSV file =tpoisson.csv=, which is used as the input
+for the =C++= code.
+
+Compile the =C++= code and run it:
+#+begin_src sh
+g++ -Wall --pedantic `<path_to_root>/root-config --cflags --glibs` -o tpoisson_root tpoisson.cpp mclimit.cpp mclimit.h
+./tpoisson_root
+#+end_src
+
+Which should also end as:
+
+#+begin_src sh
+  CLs    : 0.000342245
+  CLsb   : 0.000207342
+  CLb    : 0.60583
+< CLs >  : 0.00028615
+< CLsb > : 0.00014375
+< CLb >  : 0.50236
+#+end_src
+
+As we can see for this test without statistical errors (see below) and
+one channel with 2 systematic errors (hardcoded in both code snippets)
+the results are relatively close. A difference is expected since they
+rely on RNG. 
+
+Still needs to be checked for more than 1 channel.
+
+** Statistical errors
+
+Running the code with statistical errors breaks the calculation. The
+=CLb= still gives a number, but =CLsb= and =CLs= become =Inf=. 
+
+It might be related to:
+https://root-forum.cern.ch/t/tlimit-returning-inf-for-cls/11587
+which is kind of a "won't fix".
+
+I think the issue is related to having no checks whether the
+fluctuated poisson values are actually bigger than 0. Since they go
+below 0 (which makes no sense for poisson statistics), the calculation
+breaks. I have yet to test if fixing this in the code will make it
+work.
+

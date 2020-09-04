@@ -1,44 +1,47 @@
 import logging, strformat, math, tables, os, sequtils, sugar
 
-import arraymancer
+import arraymancer / tensor
+export tensor
 import random / mersenne
+export mersenne
 #import alea except `+` # Tensor seems to suit RandomVar concept for some reason,
                         # which calls + for RandomVar in arraymancer
 # also cannot import sugar, since that breaks in combination with ggplotnim / chroma
 import alea / [core, rng, gauss, poisson]
-import ggplotnim, seqmath
+export core, rng, gauss, poisson
+import seqmath
 type
-  Histogram = object # can be ndimensional in principle
-    ndim: int # dimensionality for reference
-    bins: Tensor[float]
-    counts: Tensor[float]
-    err: Tensor[float]
+  Histogram* = object # can be ndimensional in principle
+    ndim*: int # dimensionality for reference
+    bins*: Tensor[float]
+    counts*: Tensor[float]
+    err*: Tensor[float]
 
   # a systematic error for candidate and background channel
-  SystematicError = object
-    cand: float
-    back: float
+  SystematicError* = object
+    cand*: float
+    back*: float
 
-  Channel = object
-    sig: Histogram # expected signal hypothesis, one for each channel
-    back: Histogram # measured background
-    cand: Histogram # measured candidates
-    systErr: OrderedTable[string, SystematicError]
+  Channel* = object
+    sig*: Histogram # expected signal hypothesis, one for each channel
+    back*: Histogram # measured background
+    cand*: Histogram # measured candidates
+    systErr*: OrderedTable[string, SystematicError]
 
-  DataSource = seq[Channel]
+  DataSource* = seq[Channel]
 
-  ConfidenceLevel = object
-    nmc: int # number of monte carlo samples
-    btot: float
-    stot: float
-    dtot: float
-    tsd: float
-    iss: Tensor[int]
-    isb: Tensor[int]
-    tss: Tensor[float]
-    tsb: Tensor[float]
-    lrs: Tensor[float]
-    lrb: Tensor[float]
+  ConfidenceLevel* = object
+    nmc*: int # number of monte carlo samples
+    btot*: float
+    stot*: float
+    dtot*: float
+    tsd*: float
+    iss*: Tensor[int]
+    isb*: Tensor[int]
+    tss*: Tensor[float]
+    tsb*: Tensor[float]
+    lrs*: Tensor[float]
+    lrb*: Tensor[float]
 
 # set up the logger
 var L = newConsoleLogger()
@@ -49,14 +52,14 @@ when isMainModule:
   addHandler(L)
   addHandler(fL)
 
-proc clone(h: Histogram): Histogram =
+proc clone*(h: Histogram): Histogram =
   ## performs a clone of a histogram
   result.ndim = h.ndim
   result.bins = h.bins.clone
   result.counts = h.counts.clone
   result.err = h.err.clone
 
-proc getBins(h: Histogram): int =
+proc getBins*(h: Histogram): int =
   assert h.ndim == 1
   result = h.bins.size
 
@@ -88,7 +91,7 @@ proc gaus(rnd: var Random, mean, sigma: float): float =
     if  b * b <= -4.0 * a * a * ln(a): break
   result = mean + sigma * (b / a)
 
-proc CLb(cl: ConfidenceLevel, use_sMC: bool = false): float =
+proc CLb*(cl: ConfidenceLevel, use_sMC: bool = false): float =
   ## Get the confidence limit for the background only
   if use_sMC:
     for idx in items(cl.iss):
@@ -102,7 +105,7 @@ proc CLb(cl: ConfidenceLevel, use_sMC: bool = false): float =
         result = (i + 1).float / cl.nmc.float
       inc i
 
-proc CLsb(cl: ConfidenceLevel, use_sMC: bool = false): float =
+proc CLsb*(cl: ConfidenceLevel, use_sMC: bool = false): float =
   ## Get the confidence limit for the signal plus background hypothesis
   if use_sMC:
     var i = 0
@@ -115,7 +118,7 @@ proc CLsb(cl: ConfidenceLevel, use_sMC: bool = false): float =
       if cl.tsb[idx] <= cl.tsd:
         result += cl.lrb[idx] / cl.nmc.float
 
-proc CLs(cl: ConfidenceLevel, use_sMC: bool = false): float =
+proc CLs*(cl: ConfidenceLevel, use_sMC: bool = false): float =
   ## Get the confidence level defined by CLs = CLsb / CLb.
   ## This quantity is stable with respect to background fluctuations.
   let clb = cl.CLb(false) # NOTE: why `use_sMC` ignored here?
@@ -195,9 +198,9 @@ proc fluctuate(input: DataSource, output: var DataSource,
       output[chIdx].back = newBack
     result = true
 
-proc computeLimit(data: DataSource, rnd: var Random,
-                  stat: bool,
-                  nmc: int = 1_000_000): ConfidenceLevel =
+proc computeLimit*(data: DataSource, rnd: var Random,
+                   stat: bool,
+                   nmc: int = 1_000_000): ConfidenceLevel =
   # determine the number of bins the channel with most bins has
   let nChannel = data.len
   let maxBins = max(data.mapIt(it.sig.getBins + 2))

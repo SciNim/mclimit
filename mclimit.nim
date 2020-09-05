@@ -107,7 +107,7 @@ proc CLb*(cl: ConfidenceLevel, use_sMC: bool = false): float =
   if use_sMC:
     for idx in items(cl.iss):
       if cl.tss[idx] < cl.tsd:
-        result += 1.0 / cl.lrs[idx] * cl.nmc.float
+        result += 1.0 / (cl.lrs[idx] * cl.nmc.float)
   else:
     var i = 0
     for idx in items(cl.isb):

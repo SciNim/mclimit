@@ -59,6 +59,17 @@ proc clone*(h: Histogram): Histogram =
   result.counts = h.counts.clone
   result.err = h.err.clone
 
+proc clone*(ch: Channel): Channel =
+  ## performs a clone of a channel by cloning all contained histograms
+  result.systErr = ch.systErr # has value semantics
+  result.sig = ch.sig.clone
+  result.back = ch.back.clone
+  result.cand = ch.cand.clone
+
+proc clone*(data: DataSource): DataSource =
+  ## clones a data source, by cloning all channels
+  result = data.mapIt(it.clone)
+
 proc getBins*(h: Histogram): int =
   assert h.ndim == 1
   result = h.bins.size
@@ -127,11 +138,11 @@ proc CLs*(cl: ConfidenceLevel, use_sMC: bool = false): float =
   else: result = clsb / clb
 
 proc setTSB(cl: var ConfidenceLevel, tsb: Tensor[float]) =
-  cl.tsb = tsb
+  cl.tsb = tsb.clone
   cl.isb = tsb.argsort(SortOrder.Ascending)
 
 proc setTSS(cl: var ConfidenceLevel, tss: Tensor[float]) =
-  cl.tss = tss
+  cl.tss = tss.clone
   cl.iss = tss.argsort(SortOrder.Ascending)
 
 proc fluctuate(input: DataSource, output: var DataSource,
@@ -235,8 +246,8 @@ proc computeLimit*(data: DataSource, rnd: var Random,
     tsb = zeros[float](nmc)
     lrs = zeros[float](nmc)
     lrb = zeros[float](nmc)
-    tmp1 = data
-    tmp2 = data
+    tmp1 = data.clone
+    tmp2 = data.clone
     pois: Poisson
   for i in 0 ..< nmc:
     if i mod 5000 == 0:

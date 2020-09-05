@@ -222,7 +222,7 @@ proc computeLimit*(data: DataSource, rnd: var Random,
 
   result = ConfidenceLevel(nmc: nmc, btot: nbg, stot: nsig, dtot: ncand)
 
-  var fgTable = newTensor[float]([maxbins, nChannel])
+  var fgTable = newTensor[float]([nChannel, maxbins])
   var buffer = 0.0
   for chIdx in 0 ..< nChannel:
     for bin in 0 ..< data[chIdx].sig.getBins:

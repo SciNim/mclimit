@@ -214,7 +214,7 @@ proc computeLimit*(data: DataSource, rnd: var Random,
                    nmc: int = 1_000_000): ConfidenceLevel =
   # determine the number of bins the channel with most bins has
   let nChannel = data.len
-  let maxBins = max(data.mapIt(it.sig.getBins + 2))
+  let maxBins = max(data.mapIt(it.sig.getBins))
   template sumIt(fd: untyped): untyped = data.mapIt(it.fd.counts.sum).sum
   let nsig = sumIt(sig)
   let nbg = sumIt(back)

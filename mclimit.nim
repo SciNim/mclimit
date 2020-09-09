@@ -211,7 +211,9 @@ proc fluctuate(input: DataSource, output: var DataSource,
 
 proc computeLimit*(data: DataSource, rnd: var Random,
                    stat: bool,
-                   nmc: int = 1_000_000): ConfidenceLevel =
+                   nmc: int = 1_000_000,
+                   verbose = true
+                  ): ConfidenceLevel =
   # determine the number of bins the channel with most bins has
   let nChannel = data.len
   let maxBins = max(data.mapIt(it.sig.getBins))
@@ -250,7 +252,7 @@ proc computeLimit*(data: DataSource, rnd: var Random,
     tmp2 = data.clone
     pois: Poisson
   for i in 0 ..< nmc:
-    if i mod 5000 == 0:
+    if i mod 5000 == 0 and verbose:
       echo "Iteration ", i
     let fluct1 = if fluctuate(data, tmp1, rnd, stat): tmp1 else: data
     let fluct2 = if fluctuate(data, tmp2, rnd, stat): tmp2 else: data

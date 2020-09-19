@@ -167,7 +167,12 @@ proc fluctuate(input: DataSource, output: var DataSource,
       # NOTE: I assume bin 0 is left out, because it's the underflow bin in ROOT
       for bin in 1 ..< new.getBins:
         let gaus = gaussian(0.0, old.err[bin])
-        new.counts[bin] = old.counts[bin] + rnd.sample(gaus)
+        ## NOTE: experimental! Deviates from TLimit to avoid drawing negative samples
+        var val = old.counts[bin] + rnd.sample(gaus)
+        while val < 0.0:
+          val = old.counts[bin] + rnd.sample(gaus)
+        new.counts[bin] = val #old.counts[bin] + rnd.sample(gaus)
+        doAssert val >= 0.0
     else:
       new = old.clone
     new

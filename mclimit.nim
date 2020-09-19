@@ -294,7 +294,7 @@ proc computeLimit*(data: DataSource, rnd: var Random,
           if s2 > 0.0 and b > 0.0:
             lrb[i] += logLikelihood(s2, b2, b, rand) - s2 - b2 + b
           # TODO: is it correct here is `s` again instead of s2? seems weird
-          elif s > 0.0 and b2 == 0.0:
+          elif s > 0.0 and b == 0.0:
             lrb[i] += 20.0 * rand - s
     lrs[i] = if lrs[i] < 710: exp(lrs[i]) else: exp(710.0)
     lrb[i] = if lrb[i] < 710: exp(lrb[i]) else: exp(710.0)

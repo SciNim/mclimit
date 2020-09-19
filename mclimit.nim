@@ -43,6 +43,19 @@ type
     lrs*: Tensor[float]
     lrb*: Tensor[float]
 
+const
+  fgMCLM2S = 0.025
+  fgMCLM1S = 0.16
+  fgMCLMED = 0.5
+  fgMCLP1S = 0.84
+  fgMCLP2S = 0.975
+  # one-sided" definition
+  fgMCL3S1S = 2.6998E-3
+  fgMCL5S1S = 5.7330E-7
+  # the other definition (not chosen by the LHWG)
+  fgMCL3S2S = 1.349898E-3
+  fgMCL5S2S = 2.866516E-7
+
 # set up the logger
 var L = newConsoleLogger()
 if not dirExists("logs"):
@@ -290,3 +303,102 @@ proc computeLimit*(data: DataSource, rnd: var Random,
   result.setTSB tsb
   result.lrs = lrs
   result.lrb = lrb
+
+proc getExpectedStatistic_b*(cl: ConfidenceLevel, sigma: range[-2 .. 2] = 0): float =
+  template arg(cl, level): untyped =
+    let inner = min(cl.nmc.float, max(1, (cl.nmc.float * level))).round.int
+    let outer = cl.isb[inner]
+    outer
+  case sigma
+  of -2:
+    result = -2 * (cl.tsb[arg(cl, fgMCLP2S)] - cl.stot)
+  of -1:
+    result = -2 * (cl.tsb[arg(cl, fgMCLP1S)] - cl.stot)
+  of 0:
+    result = -2 * (cl.tsb[arg(cl, fgMCLMED)] - cl.stot)
+  of 1:
+    result = -2 * (cl.tsb[arg(cl, fgMCLM1S)] - cl.stot)
+  of 2:
+    result = -2 * (cl.tsb[arg(cl, fgMCLM2S)] - cl.stot)
+
+proc getExpectedStatistic_sb*(cl: ConfidenceLevel, sigma: range[-2 .. 2] = 0): float =
+  ## Get the expected statistic value in the signal plus background hypothesis
+  template arg(cl, level): untyped =
+    let inner = min(cl.nmc.float, max(1, (cl.nmc.float * level))).round.int
+    let outer = cl.iss[inner]
+    outer
+  case sigma
+  of -2:
+    result = -2 * (cl.tss[arg(cl, fgMCLP2S)] - cl.stot)
+  of -1:
+    result = -2 * (cl.tss[arg(cl, fgMCLP1S)] - cl.stot)
+  of 0:
+    result = -2 * (cl.tss[arg(cl, fgMCLMED)] - cl.stot)
+  of 1:
+    result = -2 * (cl.tss[arg(cl, fgMCLM1S)] - cl.stot)
+  of 2:
+    result = -2 * (cl.tss[arg(cl, fgMCLM2S)] - cl.stot)
+
+proc getExpectedCLsb_b*(cl: ConfidenceLevel, sigma: range[-2 .. 2] = 0): float =
+  ## Get the expected Confidence Level for the signal plus background hypothesis
+  ## if there is only background.
+  template assignFor(level: untyped): untyped =
+    for i in 0 ..< cl.nmc:
+      let inner = min(cl.nmc.float, max(1, (cl.nmc.float * level))).round.int
+      if (cl.tsb[cl.isb[i]] <= cl.tsb[cl.isb[inner]]):
+        result += cl.lrb[cl.isb[i]] / cl.nmc.float
+  case sigma
+  of -2:
+    assignFor(fgMCLP2S)
+  of -1:
+    assignFor(fgMCLP1S)
+  of 0:
+    assignFor(fgMCLMED)
+  of 1:
+    assignFor(fgMCLM1S)
+  of 2:
+    assignFor(fgMCLM2S)
+
+proc getExpectedCLb_sb*(cl: ConfidenceLevel, sigma: range[-2 .. 2] = 0): float =
+  ## Get the expected Confidence Level for the background only
+  ## if there is signal and background.
+  template assignFor(level: untyped): untyped =
+    for i in 0 ..< cl.nmc:
+      let inner = min(cl.nmc.float, max(1, (cl.nmc.float * level))).round.int
+      if (cl.tss[cl.iss[i]] <= cl.tss[cl.iss[inner]]):
+        result += cl.lrs[cl.iss[i]] / cl.nmc.float
+  case sigma
+  of -2:
+    assignFor(fgMCLP2S)
+  of -1:
+    assignFor(fgMCLP1S)
+  of 0:
+    assignFor(fgMCLMED)
+  of 1:
+    assignFor(fgMCLM1S)
+  of 2:
+    assignFor(fgMCLM2S)
+
+proc getExpectedCLb_b*(cl: ConfidenceLevel, sigma: range[-2 .. 2] = 0): float =
+  ## Get the expected Confidence Level for the background only
+  ## if there is only background.
+  template assignFor(level: untyped): untyped =
+    for i in 0 ..< cl.nmc:
+      let inner = min(cl.nmc.float, max(1, (cl.nmc.float * level))).round.int
+      if (cl.tsb[cl.isb[i]] <= cl.tsb[cl.isb[inner]]):
+        result = (i + 1).float / cl.nmc.float
+  case sigma
+  of -2:
+    assignFor(fgMCLP2S)
+  of -1:
+    assignFor(fgMCLP1S)
+  of 0:
+    assignFor(fgMCLMED)
+  of 1:
+    assignFor(fgMCLM1S)
+  of 2:
+    assignFor(fgMCLM2S)
+
+proc getExpectedCLs_b*(cl: ConfidenceLevel, sigma: range[-2 .. 2] = 0): float =
+  ## Get the expected CLs given the background
+  result = cl.getExpectedCLsb_b(sigma) / cl.getExpectedCLb_b(sigma)
